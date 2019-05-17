@@ -107,7 +107,7 @@ public final class ActivityData {
 
 private protocol NVActivityIndicatorPresenterState {
     func startAnimating(presenter: NVActivityIndicatorPresenter, _ fadeInAnimation: FadeInAnimation?)
-    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?)
+    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?, _ callBack: @escaping () -> ())
 }
 
 private struct NVActivityIndicatorPresenterStateWaitingToStart: NVActivityIndicatorPresenterState {
@@ -119,9 +119,10 @@ private struct NVActivityIndicatorPresenterStateWaitingToStart: NVActivityIndica
         presenter.waitingToStartGroup.leave()
     }
 
-    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?) {
+    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?, _ callBack: @escaping () -> ()) {
         presenter.state = .stopped
         presenter.waitingToStartGroup.leave()
+        callBack()
     }
 }
 
@@ -130,13 +131,13 @@ private struct NVActivityIndicatorPresenterStateAnimating: NVActivityIndicatorPr
         // Do nothing
     }
 
-    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?) {
+    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?, _ callBack: @escaping () -> ()) {
         guard let activityData = presenter.data else { return }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(activityData.minimumDisplayTime)) {
             guard presenter.state == .waitingToStop else { return }
 
-            presenter.stopAnimating(fadeOutAnimation)
+            presenter.stopAnimating(fadeOutAnimation, callBack)
         }
         presenter.state = .waitingToStop
     }
@@ -144,13 +145,13 @@ private struct NVActivityIndicatorPresenterStateAnimating: NVActivityIndicatorPr
 
 private struct NVActivityIndicatorPresenterStateWaitingToStop: NVActivityIndicatorPresenterState {
     func startAnimating(presenter: NVActivityIndicatorPresenter, _ fadeInAnimation: FadeInAnimation?) {
-        presenter.stopAnimating(nil)
+        presenter.stopAnimating(nil, {})
 
         guard let activityData = presenter.data else { return }
         presenter.startAnimating(activityData, fadeInAnimation)
     }
 
-    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?) {
+    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?, _ callBack: @escaping () -> ()) {
         presenter.hide(fadeOutAnimation)
         presenter.state = .stopped
     }
@@ -169,7 +170,7 @@ private struct NVActivityIndicatorPresenterStateStopped: NVActivityIndicatorPres
         presenter.waitingToStartGroup.enter()
     }
 
-    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?) {
+    func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?, _ callBack: @escaping () -> ()) {
         // Do nothing
     }
 }
@@ -195,8 +196,8 @@ public final class NVActivityIndicatorPresenter {
             performer.startAnimating(presenter: presenter, fadeInAnimation)
         }
 
-        func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?) {
-            performer.stopAnimating(presenter: presenter, fadeOutAnimation)
+        func stopAnimating(presenter: NVActivityIndicatorPresenter, _ fadeOutAnimation: FadeOutAnimation?, _ callBack: @escaping () -> ()) {
+            performer.stopAnimating(presenter: presenter, fadeOutAnimation, callBack)
         }
     }
 
@@ -243,8 +244,8 @@ public final class NVActivityIndicatorPresenter {
 
      - parameter fadeOutAnimation: Fade out animation.
      */
-    public final func stopAnimating(_ fadeOutAnimation: FadeOutAnimation? = nil) {
-        state.stopAnimating(presenter: self, fadeOutAnimation)
+    public final func stopAnimating(_ fadeOutAnimation: FadeOutAnimation? = nil, _ callBack: @escaping () -> ()) {
+        state.stopAnimating(presenter: self, fadeOutAnimation, callBack)
     }
 
     /// Set message displayed under activity indicator view.
